@@ -44,7 +44,14 @@ const Navbar = () => {
                 className="flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-indigo-700 hover:text-white"
               >
                 <span className="mr-3">🔑</span>
-                Sign In
+                Log In
+              </Link>
+              <Link
+                to="/signup"
+                className="flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-green-700 hover:text-white"
+              >
+                <span className="mr-3">📝</span>
+                Sign Up
               </Link>
             </>
           ) : (

@@ -1,5 +1,5 @@
-// src/components/ChessBoard.js
-import React, { useState, useEffect } from "react";
+// src/components/ChessBoard.jsx
+import React, { useState, useRef, useEffect } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 
@@ -9,7 +9,9 @@ const ChessBoard = ({
   onGameEnd,
   initialPGN = "",
 }) => {
-  const [game, setGame] = useState(new Chess());
+  const gameRef = useRef(new Chess());
+  const game = gameRef.current; // Add this line
+
   const [gamePosition, setGamePosition] = useState(game.fen());
   const [moveHistory, setMoveHistory] = useState([]);
   const [gameStatus, setGameStatus] = useState("");
@@ -18,10 +20,14 @@ const ChessBoard = ({
   useEffect(() => {
     if (initialPGN) {
       const newGame = new Chess();
-      newGame.loadPgn(initialPGN);
-      setGame(newGame);
-      setGamePosition(newGame.fen());
-      setMoveHistory(newGame.history({ verbose: true }));
+      try {
+        newGame.loadPgn(initialPGN);
+        setGame(newGame);
+        setGamePosition(newGame.fen());
+        setMoveHistory(newGame.history({ verbose: true }));
+      } catch (error) {
+        console.error("Error loading PGN:", error);
+      }
     }
   }, [initialPGN]);
 
@@ -51,28 +57,22 @@ const ChessBoard = ({
     } else {
       setGameStatus("");
     }
-  }, [game, onGameEnd]);
+  }, [gamePosition, onGameEnd]);
 
   const makeMove = (sourceSquare, targetSquare, piece) => {
-    // Only allow moves if it's player's turn
-    const playerColor = isPlayerWhite ? "w" : "b";
-    if (game.turn() !== playerColor) {
-      return false;
-    }
-
+    // Create a copy of the game to avoid mutating state directly
     try {
       const move = game.move({
         from: sourceSquare,
         to: targetSquare,
-        promotion: piece[1].toLowerCase() ?? "q", // Always promote to queen for now
+        promotion: piece,
       });
 
       if (move) {
         setGamePosition(game.fen());
-        setMoveHistory([...moveHistory, move]);
-
-        // Send move to backend here
+        setMoveHistory(game.history({ verbose: true }));
         sendMoveToServer(move);
+
         return true;
       }
     } catch (error) {
@@ -87,22 +87,47 @@ const ChessBoard = ({
     console.log("Sending move to server:", move);
   };
 
+  // v4.x API - onPieceDrop function
   const onDrop = (sourceSquare, targetSquare, piece) => {
-    return makeMove(sourceSquare, targetSquare, piece);
+    console.log("value of piece", piece);
+    let promotionPiece = "wQ";
+    if (piece && !piece.includes("wP")) {
+      promotionPiece = piece.split("")[1].toLowerCase();
+    }
+    console.log("Move attempted:", { sourceSquare, targetSquare });
+
+    // Only allow moves if it's player's turn (for local game, allow all moves)
+    if (gameId && gameId !== "local") {
+      const playerColor = isPlayerWhite ? "w" : "b";
+      if (game.turn() !== playerColor) {
+        console.log("Not your turn!");
+        return false;
+      }
+    }
+
+    return makeMove(sourceSquare, targetSquare, promotionPiece);
   };
 
   const resetGame = () => {
-    const newGame = new Chess();
-    setGame(newGame);
+    gameRef.current = new Chess(); // Create new instance
     setGamePosition(newGame.fen());
     setMoveHistory([]);
     setGameStatus("");
   };
 
+  const undoMove = () => {
+    const move = game.undo();
+
+    if (move) {
+      setGamePosition(game.fen());
+      setMoveHistory(game.history({ verbose: true }));
+    }
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
       {/* Chess Board */}
-      <div className="flex-1">
+      <div className="flex-shrink-0">
         <div className="mb-4">
           <h3 className="text-xl font-bold">Chess Game</h3>
           {gameStatus && (
@@ -120,8 +145,9 @@ const ChessBoard = ({
           )}
         </div>
 
-        <div className="max-w-lg mx-auto">
+        <div className="w-96 mx-auto">
           <Chessboard
+            autoPromoteToQueen={false}
             position={gamePosition}
             onPieceDrop={onDrop}
             boardOrientation={isPlayerWhite ? "white" : "black"}
@@ -129,18 +155,29 @@ const ChessBoard = ({
               borderRadius: "4px",
               boxShadow: "0 5px 15px rgba(0, 0, 0, 0.5)",
             }}
+            customDarkSquareStyle={{ backgroundColor: "#769656" }}
+            customLightSquareStyle={{ backgroundColor: "#eeeed2" }}
           />
         </div>
 
-        {/* Game Controls - ispod chess board-a */}
-        <div className="mt-6 max-w-lg mx-auto">
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={resetGame}
-              className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-            >
-              Reset Game
-            </button>
+        {/* Game Controls */}
+        <div className="mt-4 w-96 mx-auto">
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={undoMove}
+                disabled={moveHistory.length === 0}
+                className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
+              >
+                Undo
+              </button>
+              <button
+                onClick={resetGame}
+                className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              >
+                New Game
+              </button>
+            </div>
 
             <button
               onClick={() => (window.location.href = "/login")}
@@ -153,10 +190,10 @@ const ChessBoard = ({
       </div>
 
       {/* Move History & Game Info */}
-      <div className="lg:w-80">
+      <div className="w-80 flex-shrink-0">
         <div className="bg-white p-4 rounded-lg shadow">
           <h4 className="text-lg font-semibold mb-3">Move History</h4>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto move-history">
             {moveHistory.length === 0 ? (
               <p className="text-gray-500">No moves yet</p>
             ) : (
@@ -207,6 +244,16 @@ const ChessBoard = ({
             </div>
             <div>
               <span className="font-medium">Moves:</span> {moveHistory.length}
+            </div>
+            <div>
+              <span className="font-medium">Status:</span>
+              <span className="ml-2">
+                {game.isCheck()
+                  ? "Check"
+                  : game.isGameOver()
+                  ? "Game Over"
+                  : "Playing"}
+              </span>
             </div>
           </div>
         </div>

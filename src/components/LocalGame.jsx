@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import ChessBoard from "./Chessboard.jsx";
+import ChessBoardMine from "./ChessboardMine.jsx";
 
 const LocalGame = () => {
   const { gameId } = useParams();
@@ -9,7 +9,7 @@ const LocalGame = () => {
     <div className="min-h-screen bg-gray-100">
       {/* Chess Board */}
       <div className="container mx-auto p-4">
-        <ChessBoard
+        <ChessBoardMine
           gameId={gameId}
           isPlayerWhite={true}
           localGame={true} // Flag za local game
