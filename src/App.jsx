@@ -17,6 +17,8 @@ import LocalGame from "./components/LocalGame";
 import Navbar from "./components/Navbar";
 import "./App.css";
 import SignUp from "./components/SignUp";
+import FriendsPage from "./components/Friends";
+import AdminPanel from "./components/Admin";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -74,6 +76,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/game/local" element={<LocalGame />} />
+            <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/admin" element={<AdminPanel />} />
 
             {/* Protected Routes */}
             <Route
