@@ -9,11 +9,12 @@ import {
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
-import LocalGame from "./components/LocalGame";
+import LocalGame from "./components/GuestGame";
 
 // import GameRoom from "./components/GameRoom";
 // import Friends from "./components/Friends";
 // import Profile from "./components/Profile";
+import TestGame from "./components/TestGame";
 import Navbar from "./components/Navbar";
 import "./App.css";
 import SignUp from "./components/SignUp";
@@ -78,6 +79,7 @@ function App() {
             <Route path="/game/local" element={<LocalGame />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/test" element={<TestGame />} />
 
             {/* Protected Routes */}
             <Route
