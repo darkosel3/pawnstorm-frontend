@@ -3,7 +3,18 @@ import { useAuth } from "../contexts/AuthContext";
 
 const FriendsPage = () => {
   const { user } = useAuth();
+  const currentUserId = user?.player_id || user?.id;
 
+  // Dodaj debugging
+  useEffect(() => {
+    console.log("Auth state:", { user });
+    console.log("Token exists:", !!user?.token);
+    console.log("User data:", user);
+
+    // Proveri localStorage
+    console.log("localStorage token:", localStorage.getItem("token"));
+    console.log("localStorage user:", localStorage.getItem("user"));
+  }, [user]);
   // State management
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
@@ -16,32 +27,78 @@ const FriendsPage = () => {
   const [friendToDelete, setFriendToDelete] = useState(null);
 
   // Fetch friends data
+  // Poboljšana fetchFriends funkcija sa detaljnijim debugging-om
   const fetchFriends = async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem("token"); // ili kako god se zove u localStorage
+
+      console.log(
+        "Fetching friends with token:",
+        token ? "Token exists" : "No token"
+      );
+
       const response = await fetch("/api/friends", {
         headers: {
-          Authorization: `Bearer ${user?.token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
-      if (response.ok) {
-        const data = await response.json();
-        setFriends(data);
+
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      console.log("Response URL:", response.url);
+
+      // Proverava da li je response JSON
+      const contentType = response.headers.get("content-type");
+      console.log("Content-Type:", contentType);
+
+      if (!response.ok) {
+        // Ako nije ok, čitaj kao tekst da vidiš šta se dešava
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error(
+          `HTTP ${response.status}: ${errorText.substring(0, 200)}`
+        );
       }
+
+      // Proveri da li je zaista JSON
+      if (!contentType?.includes("application/json")) {
+        const responseText = await response.text();
+        console.error("Expected JSON but got:", responseText.substring(0, 500));
+        throw new Error("Server returned non-JSON response");
+      }
+
+      const data = await response.json();
+      console.log("Friends data:", data);
+      setFriends(data);
     } catch (error) {
       console.error("Error fetching friends:", error);
+
+      // Detaljnija error poruka za user-a
+      if (
+        error.message.includes("<!doctype") ||
+        error.message.includes("SyntaxError")
+      ) {
+        console.error(
+          "Server returned HTML instead of JSON - likely authentication or routing issue"
+        );
+      }
+
+      // Možeš dodati toast notification ili setState za error
+      // setError("Failed to load friends. Please try logging in again.");
     } finally {
       setLoading(false);
     }
   };
-
   // Fetch friend requests
   const fetchFriendRequests = async () => {
     try {
-      const response = await fetch("/api/friends/requests", {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch("/api/friends/pending", {
         headers: {
-          Authorization: `Bearer ${user?.token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -57,50 +114,78 @@ const FriendsPage = () => {
 
   // Search users
   const searchUsers = async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
+    const token = localStorage.getItem("token");
+
+    console.log("Searching for:", searchQuery);
+    console.log("Token:", token ? "exists" : "missing");
 
     try {
       const response = await fetch(
-        `/api/users/search?q=${encodeURIComponent(searchQuery)}`,
+        `http://localhost:8000/api/users/search?q=${encodeURIComponent(
+          searchQuery
+        )}`,
         {
           headers: {
-            Authorization: `Bearer ${user?.token}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         }
       );
+
+      console.log("Search response status:", response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log("Search results:", data);
         setSearchResults(data);
+      } else {
+        console.error("Send request error:", errorText);
+
+        const errorText = await response.text();
+        console.error("Search error:", errorText);
       }
     } catch (error) {
       console.error("Error searching users:", error);
     }
   };
-
   // Send friend request
   const sendFriendRequest = async (userId) => {
     try {
-      const response = await fetch("/api/friends/request", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
-      });
-      if (response.ok) {
-        // Update search results to show request sent
-        setSearchResults((prev) =>
-          prev.map((user) =>
-            user.id === userId ? { ...user, requestSent: true } : user
-          )
-        );
-        fetchFriendRequests();
+      console.log("Sending friend request to user:", userId);
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        "http://localhost:8000/api/friends/request",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId }),
+        }
+      );
+
+      console.log("Send request response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Send request error:", errorText);
+        return;
       }
+
+      const data = await response.json();
+      console.log("Friend request sent successfully:", data);
+
+      // Ažuriraj search rezultate da prikazuje "Request Sent"
+      setSearchResults((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, requestSent: true } : user
+        )
+      );
+
+      // Osvežava pending requests
+      fetchFriendRequests();
     } catch (error) {
       console.error("Error sending friend request:", error);
     }
@@ -108,11 +193,13 @@ const FriendsPage = () => {
 
   // Accept friend request
   const acceptFriendRequest = async (userId) => {
+    const token = localStorage.getItem("token"); // ili kako god se zove u localStorage
+
     try {
-      const response = await fetch("/api/friends/accept", {
+      const response = await fetch(`/api/friends/${userId}/accept`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${user?.token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ userId }),
@@ -129,10 +216,11 @@ const FriendsPage = () => {
   // Decline friend request
   const declineFriendRequest = async (userId) => {
     try {
-      const response = await fetch("/api/friends/decline", {
+      const token = localStorage.getItem("token"); // ili kako god se zove u localStorage
+      const response = await fetch(`/api/friends/${userId}/decline`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${user?.token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ userId }),
@@ -148,10 +236,12 @@ const FriendsPage = () => {
   // Cancel sent request
   const cancelSentRequest = async (userId) => {
     try {
+      const token = localStorage.getItem("token"); // ili kako god se zove u localStorage
+
       const response = await fetch("/api/friends/cancel", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${user?.token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ userId }),
@@ -402,14 +492,18 @@ const FriendsPage = () => {
                 <div className="text-center py-8 text-gray-500">
                   <p>No users found matching "{searchQuery}"</p>
                 </div>
-              ) : (
+              ) : searchQuery && searchResults.length > 0 ? (
                 <div className="space-y-4">
                   {searchResults.map((user) => (
                     <UserCard
                       key={user.id}
                       user={user}
                       actions={
-                        user.isFriend ? (
+                        user.id === currentUserId ? (
+                          <span className="text-gray-500 text-sm font-medium">
+                            You
+                          </span>
+                        ) : user.isFriend ? (
                           <span className="text-green-600 text-sm font-medium">
                             Already Friends
                           </span>
@@ -428,6 +522,10 @@ const FriendsPage = () => {
                       }
                     />
                   ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>Start typing to search for players...</p>
                 </div>
               )}
             </div>

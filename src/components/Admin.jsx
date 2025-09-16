@@ -41,20 +41,50 @@ const AdminPanel = () => {
     pendingRequests: 0,
   });
 
-  // Fetch data functions
+  // Helper function for API calls with error handling
+  const makeAPICall = async (url, options = {}) => {
+    const token = localStorage.getItem("token");
+
+    const defaultOptions = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      ...options,
+    };
+
+    try {
+      const response = await fetch(url, defaultOptions);
+
+      const contentType = response.headers.get("content-type");
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error [${response.status}]:`, errorText);
+        throw new Error(
+          `HTTP ${response.status}: ${errorText.substring(0, 200)}`
+        );
+      }
+
+      if (!contentType?.includes("application/json")) {
+        const responseText = await response.text();
+        console.error("Expected JSON but got:", responseText.substring(0, 200));
+        throw new Error("Server returned non-JSON response");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("API Call failed:", error);
+      throw error;
+    }
+  };
+
+  // Fetch data functions using existing routes
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/users", {
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
-      }
+      const data = await makeAPICall("/api/users/search?q="); // Use search route with empty query to get all
+      setUsers(data);
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
@@ -65,25 +95,8 @@ const AdminPanel = () => {
   const fetchGames = async () => {
     setLoading(true);
     try {
-      const queryParams = new URLSearchParams();
-      if (gameFilters.status !== "all")
-        queryParams.append("status", gameFilters.status);
-      if (gameFilters.gameType !== "all")
-        queryParams.append("type", gameFilters.gameType);
-      if (gameFilters.dateFrom)
-        queryParams.append("from", gameFilters.dateFrom);
-      if (gameFilters.dateTo) queryParams.append("to", gameFilters.dateTo);
-
-      const response = await fetch(`/api/admin/games?${queryParams}`, {
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setGames(data);
-      }
+      // Mock games data since there's no games route yet
+      setGames([]);
     } catch (error) {
       console.error("Error fetching games:", error);
     } finally {
@@ -93,16 +106,23 @@ const AdminPanel = () => {
 
   const fetchFriendRequests = async () => {
     try {
-      const response = await fetch("/api/admin/friend-requests", {
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setFriendRequests(data);
-      }
+      const data = await makeAPICall("/api/friends/pending");
+      // Transform the data structure to match admin panel expectations
+      const allRequests = [
+        ...(data.received || []).map((req) => ({
+          ...req,
+          from_user: req.username,
+          to_user: "Current User", // You'll need to get current user data
+          status: "pending",
+        })),
+        ...(data.sent || []).map((req) => ({
+          ...req,
+          from_user: "Current User",
+          to_user: req.username,
+          status: "pending",
+        })),
+      ];
+      setFriendRequests(allRequests);
     } catch (error) {
       console.error("Error fetching friend requests:", error);
     }
@@ -110,131 +130,64 @@ const AdminPanel = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch("/api/admin/stats", {
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
+      // Calculate stats from existing data
+      const usersData = await makeAPICall("/api/users/search?q=");
+      const friendsData = await makeAPICall("/api/friends/pending");
+
+      setStats({
+        totalUsers: usersData.length || 0,
+        activeUsers: usersData.filter((u) => u.isOnline).length || 0,
+        totalGames: 0, // No games route yet
+        completedGames: 0,
+        pendingRequests:
+          (friendsData.received?.length || 0) + (friendsData.sent?.length || 0),
       });
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
   };
 
-  // User CRUD operations
+  // User CRUD operations (limited functionality with existing routes)
   const handleSaveUser = async () => {
-    const url = editingUser
-      ? `/api/admin/users/${editingUser.id}`
-      : "/api/admin/users";
-    const method = editingUser ? "PUT" : "POST";
-
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userForm),
-      });
-
-      if (response.ok) {
-        fetchUsers();
-        setShowUserModal(false);
-        setEditingUser(null);
-        setUserForm({
-          username: "",
-          email: "",
-          rating: 1200,
-          role: "user",
-          status: "active",
-        });
-      }
-    } catch (error) {
-      console.error("Error saving user:", error);
-    }
+    alert(
+      "User management functionality requires dedicated admin routes. Currently using read-only mode."
+    );
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
-
-    try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        fetchUsers();
-      }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-    }
+    alert(
+      "User deletion requires dedicated admin routes. Currently using read-only mode."
+    );
   };
 
   const handleBanUser = async (userId, action) => {
-    try {
-      const response = await fetch(`/api/admin/users/${userId}/${action}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        fetchUsers();
-      }
-    } catch (error) {
-      console.error(`Error ${action} user:`, error);
-    }
+    alert(
+      "User ban/unban requires dedicated admin routes. Currently using read-only mode."
+    );
   };
 
-  // Game management
+  // Game management (limited functionality)
   const handleDeleteGame = async (gameId) => {
-    if (!window.confirm("Are you sure you want to delete this game?")) return;
-
-    try {
-      const response = await fetch(`/api/admin/games/${gameId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        fetchGames();
-      }
-    } catch (error) {
-      console.error("Error deleting game:", error);
-    }
+    alert(
+      "Game management requires dedicated admin routes. Currently using read-only mode."
+    );
   };
 
-  // Friend request management
+  // Friend request management using existing routes
   const handleFriendRequest = async (requestId, action) => {
     try {
-      const response = await fetch(
-        `/api/admin/friend-requests/${requestId}/${action}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${user?.token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        fetchFriendRequests();
+      if (action === "approve") {
+        await makeAPICall(`/api/friends/${requestId}/accept`, {
+          method: "POST",
+          body: JSON.stringify({ userId: requestId }),
+        });
+      } else if (action === "reject") {
+        await makeAPICall(`/api/friends/${requestId}/decline`, {
+          method: "POST",
+          body: JSON.stringify({ userId: requestId }),
+        });
       }
+      fetchFriendRequests();
     } catch (error) {
       console.error(`Error ${action} friend request:`, error);
     }
@@ -266,7 +219,8 @@ const AdminPanel = () => {
       {children}
     </button>
   );
-  //
+
+  // Uncomment this if you want admin-only access
   // if (!user?.isAdmin) {
   //     return (
   //         <div className="min-h-screen bg-gray-50 pl-64 flex items-center justify-center">
@@ -429,7 +383,7 @@ const AdminPanel = () => {
                                     username: user.username,
                                     email: user.email,
                                     rating: user.rating,
-                                    admin_type: user.admin_type,
+                                    role: user.role,
                                     status: user.status,
                                   });
                                   setShowUserModal(true);
@@ -665,9 +619,12 @@ const AdminPanel = () => {
                     <div>Total: {stats.totalUsers}</div>
                     <div>
                       Retention:{" "}
-                      {((stats.activeUsers / stats.totalUsers) * 100).toFixed(
-                        1
-                      )}
+                      {stats.totalUsers > 0
+                        ? (
+                            (stats.activeUsers / stats.totalUsers) *
+                            100
+                          ).toFixed(1)
+                        : 0}
                       %
                     </div>
                   </div>
@@ -680,10 +637,12 @@ const AdminPanel = () => {
                     <div>Completed: {stats.completedGames}</div>
                     <div>
                       Completion Rate:{" "}
-                      {(
-                        (stats.completedGames / stats.totalGames) *
-                        100
-                      ).toFixed(1)}
+                      {stats.totalGames > 0
+                        ? (
+                            (stats.completedGames / stats.totalGames) *
+                            100
+                          ).toFixed(1)
+                        : 0}
                       %
                     </div>
                   </div>

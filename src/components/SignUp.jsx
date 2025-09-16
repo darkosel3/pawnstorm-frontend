@@ -54,7 +54,7 @@ const SignUp = () => {
 
   const handleGuestLogin = () => {
     loginAsGuest();
-    navigate("/game/local");
+    navigate("/game/guest");
   };
 
   const handleChange = (e) => {

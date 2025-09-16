@@ -41,7 +41,8 @@ export const AuthProvider = ({ children }) => {
   const fetchUser = async () => {
     try {
       const response = await api.get("/me");
-      setUser(response.data);
+      setUser(response.data.data);
+
       setIsGuest(false);
     } catch (error) {
       localStorage.removeItem("token");
@@ -53,11 +54,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await api.post("/login", { email, password });
-      const { token, user } = response.data;
+      const { token, data } = response.data;
 
       localStorage.setItem("token", token);
       localStorage.removeItem("guestMode");
-      setUser(user);
+      console.log(data);
+      setUser(data); // data umesto user
+
       setIsGuest(false);
       return { success: true };
     } catch (error) {
@@ -84,11 +87,13 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await api.post("/register", userData);
-      const { token, user } = response.data;
+      const { token, data } = response.data;
+      console.log("Register response:", response.data); // Dodaj ovo
 
       localStorage.setItem("token", token);
       localStorage.removeItem("guestMode");
-      setUser(user);
+      setUser(data); // data umesto user
+
       setIsGuest(false);
       return { success: true };
     } catch (error) {

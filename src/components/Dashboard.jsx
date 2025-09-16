@@ -1,11 +1,12 @@
 // src/components/Dashboard.js
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
 
 const Dashboard = () => {
   const { user, isGuest } = useAuth();
+  const navigate = useNavigate();
   const [recentGames, setRecentGames] = useState([]);
   const [onlineFriends, setOnlineFriends] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,9 +21,9 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [gamesResponse, friendsResponse] = await Promise.all([
-        api.get("/games?limit=5"),
-        api.get("/friends?online=true"),
+      const [gamesResponse] = await Promise.all([
+        api.get("/my-games"),
+        api.get("/friends"),
       ]);
 
       setRecentGames(gamesResponse.data);
@@ -103,17 +104,17 @@ const Dashboard = () => {
 
         <div className="mt-4 flex gap-4">
           <button
-            onClick={() => startNewGame()}
+            onClick={() => navigate("/game/play")}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg"
           >
             Quick Game
           </button>
-          <Link
+          {/* <Link
             to="/friends"
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg"
           >
             Play with Friends
-          </Link>
+          </Link> */}
         </div>
       </div>
 
@@ -161,7 +162,7 @@ const Dashboard = () => {
         </div>
 
         {/* Online Friends */}
-        <div className="bg-white rounded-lg shadow p-6">
+        {/* <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Online Friends</h2>
           {onlineFriends.length === 0 ? (
             <p className="text-gray-500">No friends online</p>
@@ -186,7 +187,7 @@ const Dashboard = () => {
               ))}
             </div>
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   );

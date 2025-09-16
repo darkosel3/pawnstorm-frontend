@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import api from "../services/api";
 
 const Navbar = () => {
   const { user, logout, isGuest } = useAuth();
@@ -21,12 +22,7 @@ const Navbar = () => {
     setFriendsLoading(true);
     try {
       // Replace with your actual API endpoint
-      const response = await fetch("/api/friends", {
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.get("/friends");
 
       if (response.ok) {
         const friendsData = await response.json();
@@ -105,7 +101,6 @@ const Navbar = () => {
             ▼
           </span>
         </button>
-
         {showFriendsPanel && (
           <div className="bg-indigo-900 rounded-md p-3 max-h-64 overflow-y-auto">
             {friendsLoading ? (
@@ -195,7 +190,7 @@ const Navbar = () => {
     <div className="fixed inset-y-0 left-0 z-50 w-64 bg-indigo-800">
       {/* Logo */}
       <div className="flex items-center justify-center h-16 bg-indigo-900">
-        <span className="text-white text-xl font-bold">Chess Game</span>
+        <span className="text-white text-xl font-bold">Pawnstorm</span>
       </div>
 
       {/* Navigation */}
@@ -205,7 +200,7 @@ const Navbar = () => {
             // GUEST NAVIGATION
             <>
               <button
-                onClick={() => navigate("/game/local")}
+                onClick={() => navigate("/game/guest")}
                 className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-md bg-green-600 hover:bg-green-700 text-white"
               >
                 <span className="mr-3">▶️</span>
@@ -230,6 +225,14 @@ const Navbar = () => {
           ) : (
             // REGISTERED USER NAVIGATION
             <>
+              <button
+                onClick={() => navigate("/game/play")}
+                className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-md bg-green-600 hover:bg-green-700 text-white"
+              >
+                <span className="mr-3">▶️</span>
+                Play Chess
+              </button>
+
               <Link
                 to="/dashboard"
                 className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${isActiveLink(
@@ -240,7 +243,7 @@ const Navbar = () => {
                 Dashboard
               </Link>
 
-              <Link
+              {/* <Link
                 to="/friends"
                 className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${isActiveLink(
                   "/friends"
@@ -248,17 +251,7 @@ const Navbar = () => {
               >
                 <span className="mr-3">👥</span>
                 Friends
-              </Link>
-
-              <Link
-                to="/profile"
-                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${isActiveLink(
-                  "/profile"
-                )}`}
-              >
-                <span className="mr-3">👤</span>
-                Profile
-              </Link>
+              </Link> */}
             </>
           )}
         </div>
